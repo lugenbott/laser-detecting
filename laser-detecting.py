@@ -2,6 +2,7 @@ from LaserSensorCmd import send_modbus_cmd, read_response, calc_crc16, ser
 import matplotlib.pyplot as plt
 import numpy as np
 import struct
+import os
 import time
 import keyboard
 
@@ -10,6 +11,10 @@ FUNC_READ = 0x04
 FUNC_WRITE = 0x06
 
 def read_distance():
+    '''
+    读取距离值
+    返回值: 距离值(单位mm)
+    '''
     send_modbus_cmd(DEVICE_ADDR, FUNC_READ, 0x0000, 0x0002)
     resp = read_response(9)
     if len(resp) == 9 and resp[1] == FUNC_READ:
@@ -86,11 +91,17 @@ if __name__ == "__main__":
     idx = 0
     while True:
         dist = read_distance()
-        distances[idx % MAX_POINTS] = dist
+        # 动态扩展数据
+        if idx >= len(distances):
+            distances.extend([None] * MAX_POINTS)
+            counts.extend(range(len(counts), len(counts) + MAX_POINTS))
+            line.set_xdata(counts)
+            ax.set_xlim(0, len(counts) - 1)
+        distances[idx] = dist
         # 只显示有效数据
         valid_distances = [d if d is not None else np.nan for d in distances]
         line.set_ydata(valid_distances)
-        ax.set_xlim(0, MAX_POINTS - 1)
+        ax.set_xlim(0, len(counts) - 1)
         ax.relim()
         ax.autoscale_view(scaley=True)
         plt.draw()
@@ -100,3 +111,10 @@ if __name__ == "__main__":
         if keyboard.is_pressed('q'):
             print("退出程序")
             break
+    
+    # 退出后保存图表
+    os.makedirs("data", exist_ok=True)
+    save_path = os.path.join("data", "distance_plot.png")
+    plt.ioff()
+    plt.savefig(save_path)
+    print(f"图表已保存到 {save_path}")
