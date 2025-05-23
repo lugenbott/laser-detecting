@@ -1,4 +1,4 @@
-from LaserSensorCmd import send_modbus_cmd, read_response, calc_crc16, ser
+from .LaserSensorCmd import send_modbus_cmd, read_response, calc_crc16, ser
 import matplotlib.pyplot as plt
 import numpy as np
 import struct
