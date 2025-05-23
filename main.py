@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import time
 import keyboard
@@ -8,12 +9,14 @@ from script.laser_detecting import read_distance
 class LaserMenu:
     def __init__(self):
         self.running = True
+        self.baseline = None
+        self.init_sensor()
 
     def show_menu(self):
         print("\n======= 激光测距传感器主控菜单 =======")
         print("1. 实时读取距离")
         print("2. 计算深度范围（最小-最大差值）并绘图")
-        print("3. 初始化")
+        print("3. 校准基准面")
         print("q. 退出程序")
         print("===================================")
 
@@ -25,6 +28,8 @@ class LaserMenu:
                 self.read_realtime_distance()
             elif choice == '2':
                 self.calculate_depth_range()
+            elif choice == '3':
+                self.init_sensor()
             elif choice == 'q':
                 print("退出程序，再见！")
                 self.running = False
@@ -66,10 +71,9 @@ class LaserMenu:
             dist=dist/100
             if dist is None:
                 continue
-            min_val = min(min_val, dist)
             max_val = max(max_val, dist)
-            delta = max_val - min_val
-            print(f"最小值：{min_val} mm，最大值：{max_val} mm，深度差值：{delta} mm")
+            delta = max_val - self.baseline
+            print(f"最大值：{max_val} mm，深度差值：{delta:.2f} mm")
 
             if idx >= len(distances):
                 distances.extend([np.nan] * MAX_POINTS)
@@ -90,9 +94,29 @@ class LaserMenu:
 
         plt.ioff()
         os.makedirs("data", exist_ok=True)
-        save_path = os.path.join("data", "depth_range_plot.png")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = os.path.join("data", f"depth_range_plot_{timestamp}.png")
         plt.savefig(save_path)
         print(f"图表已保存至 {save_path}")
+    
+    def init_sensor(self):
+        print("\n正在进行基准距离初始化，请保持传感器对准参考平面...")
+        duration = 5  # 秒
+        interval = 0.1  # 每 0.1 秒读取一次
+        samples = []
+
+        for i in range(int(duration / interval)):
+            dist = read_distance()
+            if dist is not None:
+                samples.append(dist)
+            time.sleep(interval)
+
+        if samples:
+            self.baseline = sum(samples) / len(samples)
+            self.baseline = self.baseline / 100
+            print(f"✅ 基准距离初始化完成，平均值为：{self.baseline:.2f} mm")
+        else:
+            print("⚠ 初始化失败，未能读取到有效数据")
 
 
 if __name__ == "__main__":
