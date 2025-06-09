@@ -8,20 +8,20 @@ from script.laser_detecting import read_distance
 
 class LaserMenu:
     def __init__(self):
-        self.running = True
-        self.baseline = None
-        self.init_sensor()
+        self.__running = True
+        self.__baseline = None
 
     def show_menu(self):
         print("\n======= 激光测距传感器主控菜单 =======")
         print("1. 实时读取距离")
         print("2. 计算深度范围（最小-最大差值）并绘图")
         print("3. 校准基准面")
+        print("4. 读取当前基准面距离")
         print("q. 退出程序")
         print("===================================")
 
     def start(self):
-        while self.running:
+        while self.__running:
             self.show_menu()
             choice = input("请输入你的选择：")
             if choice == '1':
@@ -29,10 +29,12 @@ class LaserMenu:
             elif choice == '2':
                 self.calculate_depth_range()
             elif choice == '3':
-                self.init_sensor()
+                self.calibrate_baseline()
+            elif choice == '4':
+                self.get_baseline()
             elif choice == 'q':
                 print("退出程序，再见！")
-                self.running = False
+                self.__running = False
             else:
                 print("无效输入，请重新选择。")
 
@@ -49,6 +51,14 @@ class LaserMenu:
 
     def calculate_depth_range(self):
         print("正在记录距离变化，按下 q 键退出...")
+
+        failure_count = 0
+        while self.__baseline is None:
+            self.calibrate_baseline()
+            failure_count += 1
+            if failure_count > 3:
+                print("⚠ 初始化失败，请检查传感器连接或位置。")
+                return
 
         plt.rcParams["font.sans-serif"] = ["SimHei"]
         plt.rcParams["axes.unicode_minus"] = False
@@ -72,7 +82,7 @@ class LaserMenu:
             if dist is None:
                 continue
             max_val = max(max_val, dist)
-            delta = max_val - self.baseline
+            delta = max_val - self.__baseline
             print(f"最大值：{max_val} mm，深度差值：{delta:.2f} mm")
 
             if idx >= len(distances):
@@ -99,7 +109,7 @@ class LaserMenu:
         plt.savefig(save_path)
         print(f"图表已保存至 {save_path}")
     
-    def init_sensor(self):
+    def calibrate_baseline(self):
         print("\n正在进行基准距离初始化，请保持传感器对准参考平面...")
         duration = 5  # 秒
         interval = 0.1  # 每 0.1 秒读取一次
@@ -112,12 +122,17 @@ class LaserMenu:
             time.sleep(interval)
 
         if samples:
-            self.baseline = sum(samples) / len(samples)
-            self.baseline = self.baseline / 100
-            print(f"✅ 基准距离初始化完成，平均值为：{self.baseline:.2f} mm")
+            self.__baseline = sum(samples) / len(samples)
+            self.__baseline = self.__baseline / 100
+            print(f"✅ 基准距离初始化完成，平均值为：{self.__baseline:.2f} mm")
         else:
             print("⚠ 初始化失败，未能读取到有效数据")
 
+    def get_baseline(self):
+        if self.__baseline is None:
+            print("⚠ 请先进行基准距离初始化")
+            return None
+        return self.__baseline
 
 if __name__ == "__main__":
     menu = LaserMenu()
